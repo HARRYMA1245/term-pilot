@@ -223,3 +223,10 @@
 - Sources read: https://umeh.top/terms-of-service (updated 2026-10-24), `https://umeh.top/.well-known/oauth-protected-resource/mcp`, `https://clerk.umeh.top/.well-known/oauth-authorization-server`, and UMHelper/next-web files `plugins/what2reg-um/mcp.json`, `plugins/what2reg-um/skills/um-course-advisor/SKILL.md`, `lib/mcp/schemas.ts`, `lib/mcp/auth.ts`, `lib/mcp/constants.ts`, `lib/mcp/rate-limit.ts`, `app/mcp/route.ts`, and `app/oauth-consent/[[...index]]/page.tsx`.
 - Generation: server-side MCP client, per-student OAuth (`umhelper:read` plus documented `offline_access` refresh), 24-hour cache, course-card attribution, and `readReviews`. Tests use fixtures. No live review call was made.
 - Human verification: not yet done. The student still needs to register the OAuth client on What2Reg, set the placeholder env vars, and confirm a connected account sees grade, difficulty, usefulness, and links on umeh.top.
+
+## 2026-11-16 — review understanding and request-specific reports
+
+- Model: Grok 4.7, in Cursor. The runtime path can call DeepSeek `deepseek-flash` only when `DEEPSEEK_API_KEY` is set. This session did not call DeepSeek or the live What2Reg MCP.
+- Purpose: turn a retrieved review page into a fixed-schema reading and a short report that follows the student's question, without changing legal section choice.
+- Generation: `buildReviewUnderstanding`, grounded model JSON parsing, `rewriteForRequest`, a 24-hour understanding cache, course-card blurb, and `readReviews` / `reviewQuestion` prompt text. Fixture tests cover schema, conflict, two questions, the compulsory-course guard, and a failed model call.
+- Human verification: not yet done. A signed-in session with a What2Reg token and a DeepSeek key is still needed to see a live blurb.

@@ -19,6 +19,7 @@ export async function GET(req: Request) {
         attribution: WHAT2REG_ATTRIBUTION,
         disclaimer: WHAT2REG_DISCLAIMER,
         instructors: [],
+        understanding: null,
         mayRejectLegalCourse: false,
       });
     }
@@ -36,6 +37,7 @@ export async function GET(req: Request) {
       attribution: WHAT2REG_ATTRIBUTION,
       disclaimer: WHAT2REG_DISCLAIMER,
       instructors: [],
+      understanding: null,
       mayRejectLegalCourse: false,
     });
   }

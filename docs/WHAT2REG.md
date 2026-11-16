@@ -27,7 +27,15 @@ Lookups happen only for a course the student has opened or for at most four cour
 - TermPilot does not follow `hasMore`. The card links to the original page instead.
 - Successful lookups, including an empty public page, are cached for 24 hours. Errors are not cached.
 - What2Reg's own limits are 60 calls per user per minute and 300 calls per tool per hour. A failure, a 401, a 403, or a 429 becomes "reviews unavailable". The proposal and the manual editor keep working.
-- The assistant tool `readReviews` may run at most four times per turn, inside the existing tool budget. The model is told that reviews are community opinions and must not drop a legal compulsory or required course.
+- The assistant tool `readReviews` may run at most four times per turn, inside the existing tool budget. It returns the raw review page and, when understanding succeeded, a structured summary. The model is told to rewrite that summary for the student's question and must not drop a legal compulsory or required course.
+
+## Understanding and request-specific reports
+
+After a successful lookup, TermPilot may ask DeepSeek (`deepseek-flash` at `https://api.deepseek.com`, the same host as the planning assistant) for a JSON reading of the comments. The server keeps only pros and cons whose `groundedIn` text appears in a returned review. Grade, difficulty, and usefulness impressions come from the numeric scores. Uncertainty is `small-sample` when fewer than three comments came back, and `conflict` when comments disagree. That object is cached with the review text for 24 hours, so opening the same card does not call the model again.
+
+The course card shows a short blurb from that object, then the raw comments, with the same attribution. Proposal notes use `rewriteForRequest` when `plan.reviewQuestion` is set, so a question about workload and a question about passing do not share one paragraph. A required course still only gains a note that the opinion does not remove it.
+
+If `DEEPSEEK_API_KEY` is missing, or the model call fails or returns JSON that cannot be read, understanding is omitted. Raw reviews still show when the MCP lookup succeeded. Search, rules, and planning keep working. The model is not given a made-up summary.
 
 ## Attribution
 

@@ -3,11 +3,14 @@ import { fetchForm, fetchTransport } from "./http";
 import { createWhat2RegClient, type McpTransport } from "./client";
 import { readWhat2RegConfig, type What2RegConfig } from "./config";
 import { lookupCourseReviews } from "./lookup";
+import { deepseekReviewCompleter } from "./model";
 import { refreshAccessToken, revokeAccess, type FormPoster } from "./oauth";
+import { understandReviews, understandingCacheKey, type ReviewCompleter } from "./understand";
 import {
   PLAN_REVIEW_COURSE_CAP,
   type CommunityReviewNote,
   type ReviewLookup,
+  type ReviewUnderstanding,
   type What2RegGrant,
   type What2RegTokenStore,
 } from "./types";
@@ -19,6 +22,8 @@ export type What2RegDeps = {
   transport: McpTransport;
   postForm: FormPoster;
   now: () => number;
+  /** Null when DEEPSEEK_API_KEY is unset. Understanding is skipped and raw reviews remain. */
+  complete?: ReviewCompleter | null;
 };
 
 type GlobalCache = typeof globalThis & { termPilotWhat2RegCache?: ReviewCache };
@@ -46,6 +51,7 @@ export async function resolveRuntimeDeps(): Promise<What2RegDeps> {
     transport: fetchTransport(),
     postForm: fetchForm(),
     now: () => Date.now(),
+    complete: deepseekReviewCompleter(),
   };
 }
 
@@ -102,7 +108,28 @@ export async function readReviewsForUser(
     callTool: (name, args) => client.callTool(name, args),
   });
   if (result.status === "unauthorized") await deps.store.delete(input.userId);
-  return result;
+  return attachUnderstanding(result, deps);
+}
+
+export async function attachUnderstanding(result: ReviewLookup, deps: What2RegDeps): Promise<ReviewLookup> {
+  if (result.status !== "ok") return { ...result, understanding: null };
+  const key = understandingCacheKey(result);
+  const cached = deps.cache.get<ReviewUnderstanding>(key);
+  if (cached) return { ...result, understanding: cached };
+  if (!deps.complete) return { ...result, understanding: null };
+  try {
+    const understanding = await understandReviews(result, deps.complete);
+    if (!understanding) {
+      console.info(JSON.stringify({ tool: "what2reg-understand", outcome: "unavailable" }));
+      return { ...result, understanding: null };
+    }
+    deps.cache.set(key, understanding);
+    console.info(JSON.stringify({ tool: "what2reg-understand", outcome: "ok" }));
+    return { ...result, understanding };
+  } catch {
+    console.info(JSON.stringify({ tool: "what2reg-understand", outcome: "unavailable" }));
+    return { ...result, understanding: null };
+  }
 }
 
 export async function notesForCourses(
@@ -130,6 +157,7 @@ export async function notesForCourses(
       usefulness: first.usefulness,
       summary: first.summaries[0]?.text ?? null,
       url,
+      understanding: result.understanding,
     });
   }
   return notes;

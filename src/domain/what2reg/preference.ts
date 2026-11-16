@@ -1,4 +1,5 @@
 import { rankAdditions } from "../recommend";
+import { rewriteForRequest, understandingBlurb } from "./understand";
 import {
   WHAT2REG_ATTRIBUTION,
   WHAT2REG_DISCLAIMER,
@@ -21,13 +22,28 @@ function noteFor(courseCode: string, notes: readonly CommunityReviewNote[]): Com
  * Section keys, order, basis, and gap reason stay as rankAdditions decided them.
  * A harsh review cannot remove a compulsory or required course.
  */
-export function applyReviewContext(ranked: RankedAdditions, notes: readonly CommunityReviewNote[]): RankedAdditions & {
+export function applyReviewContext(
+  ranked: RankedAdditions,
+  notes: readonly CommunityReviewNote[],
+  question?: string | null,
+): RankedAdditions & {
   explanation: string | null;
 } {
   if (notes.length === 0) return { ...ranked, explanation: null };
+  const asked = question?.trim() ?? "";
   const selections = ranked.selections.map((row) => {
     const note = noteFor(row.courseCode, notes);
     if (!note) return { ...row };
+    if (note.understanding && asked) {
+      const report = rewriteForRequest({ understanding: note.understanding, question: asked, basis: row.basis });
+      return { ...row, detail: `${row.detail} ${report}`.trim() };
+    }
+    if (note.understanding) {
+      const guard = REQUIRED.has(row.basis)
+        ? " This community opinion does not remove this required course."
+        : " This community opinion is a soft preference and does not change the chosen section.";
+      return { ...row, detail: `${row.detail} ${understandingBlurb(note.understanding)}${guard}`.trim() };
+    }
     const opinion =
       `Community opinion from ${WHAT2REG_ATTRIBUTION} for ${note.instructor ?? "this course"}: ` +
       `grade ${formatScore(note.grade)}, difficulty ${formatScore(note.difficulty)}, usefulness ${formatScore(note.usefulness)}.` +
@@ -56,6 +72,7 @@ export function applyReviewContext(ranked: RankedAdditions, notes: readonly Comm
 export function rankAdditionsWithReviews(
   input: Parameters<typeof rankAdditions>[0],
   notes: readonly CommunityReviewNote[],
+  question?: string | null,
 ): RankedAdditions & { explanation: string | null } {
-  return applyReviewContext(rankAdditions(input), notes);
+  return applyReviewContext(rankAdditions(input), notes, question);
 }

@@ -58,12 +58,47 @@ export type InstructorReviews = {
 
 export type ReviewLookupStatus = "ok" | "empty" | "unauthorized" | "unavailable";
 
+export const REVIEW_THEMES = ["workload", "teaching", "assessment", "worth", "grading", "other"] as const;
+export type ReviewTheme = (typeof REVIEW_THEMES)[number];
+
+export const REVIEW_UNCERTAINTY = ["none", "small-sample", "conflict"] as const;
+export type ReviewUncertainty = (typeof REVIEW_UNCERTAINTY)[number];
+
+/** One pro or con. `groundedIn` is a span copied from a public review summary. */
+export type ReviewPoint = {
+  text: string;
+  theme: ReviewTheme;
+  groundedIn: string;
+};
+
+export type ReviewImpression = {
+  grade: string | null;
+  difficulty: string | null;
+  usefulness: string | null;
+};
+
+/**
+ * Fixed-schema reading of one course's public reviews.
+ * Soft preference only. It never changes legality.
+ */
+export type ReviewUnderstanding = {
+  courseCode: string;
+  impression: ReviewImpression;
+  themes: ReviewTheme[];
+  pros: ReviewPoint[];
+  cons: ReviewPoint[];
+  uncertainty: ReviewUncertainty;
+  uncertaintyNote: string | null;
+  sampleSize: number;
+};
+
 export type ReviewLookup = {
   status: ReviewLookupStatus;
   courseCode: string;
   attribution: string;
   disclaimer: string;
   instructors: InstructorReviews[];
+  understanding: ReviewUnderstanding | null;
   /** Always false. Reviews never authorize dropping a legal course. */
   mayRejectLegalCourse: false;
 };
@@ -76,6 +111,7 @@ export type CommunityReviewNote = {
   usefulness: number | null;
   summary: string | null;
   url: string;
+  understanding: ReviewUnderstanding | null;
 };
 
 export type RankedAdditions = {

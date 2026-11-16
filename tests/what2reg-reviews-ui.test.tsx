@@ -28,6 +28,16 @@ describe("community review UI", () => {
           status: "ok",
           attribution: "澳大選咩課 / What2Reg @ UM",
           disclaimer: WHAT2REG_DISCLAIMER,
+          understanding: {
+            courseCode: "CSCI1001",
+            impression: { grade: "Grade score 3.5: in the middle.", difficulty: null, usefulness: null },
+            themes: ["workload"],
+            pros: [],
+            cons: [{ text: "The assignments take time.", theme: "workload", groundedIn: "The assignments take time." }],
+            uncertainty: "small-sample",
+            uncertaintyNote: "Only 1 public comment.",
+            sampleSize: 1,
+          },
           instructors: [
             {
               name: "CHAN TAI MAN",
@@ -41,6 +51,8 @@ describe("community review UI", () => {
         }}
       />,
     );
+    expect(html).toContain("Grade score 3.5");
+    expect(html).toContain("Only 1 public comment.");
     expect(html).toContain("Grade 3.5");
     expect(html).toContain("Difficulty 4");
     expect(html).toContain("Usefulness 4.2");
@@ -57,6 +69,7 @@ describe("community review UI", () => {
           status: "unauthorized",
           attribution: "澳大選咩課 / What2Reg @ UM",
           disclaimer: WHAT2REG_DISCLAIMER,
+          understanding: null,
           instructors: [],
         }}
       />,

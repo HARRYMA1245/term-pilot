@@ -8,6 +8,7 @@ import { validateSections, type RuleReport } from "../domain/rules";
 import { searchSections, type SearchHit } from "../domain/search";
 import type { Catalogue } from "../domain/types";
 import { applyReviewContext } from "../domain/what2reg/preference";
+import { rewriteForRequest } from "../domain/what2reg/understand";
 import {
   READ_REVIEWS_TURN_LIMIT,
   WHAT2REG_ATTRIBUTION,
@@ -95,8 +96,12 @@ export type ReviewReader = {
   notesFor: (courseCodes: string[]) => Promise<CommunityReviewNote[]>;
 };
 
+const REVIEW_INSTRUCTION =
+  "Read understanding.pros, understanding.cons, understanding.themes, and the raw review text. Rewrite a short answer for the student's current question. Use what the comments are about, not scores alone. If uncertainty is small-sample or conflict, say the evidence is thin or the comments disagree. Attribute 澳大選咩課 / What2Reg @ UM and say these are not official University of Macau statements. Never drop a legal compulsory or required course because a review is negative.";
+
 function missingReviews(courseCode: string, status: "unauthorized" | "unavailable" | "limited"): ReviewLookup & {
   instruction: string;
+  report: null;
 } {
   const instruction =
     status === "limited"
@@ -110,7 +115,9 @@ function missingReviews(courseCode: string, status: "unauthorized" | "unavailabl
     attribution: WHAT2REG_ATTRIBUTION,
     disclaimer: WHAT2REG_DISCLAIMER,
     instructors: [],
+    understanding: null,
     mayRejectLegalCourse: false,
+    report: null,
     instruction,
   };
 }
@@ -143,7 +150,7 @@ export function createTools(input: {
   }>;
   readPolicy: (args?: unknown) => Promise<Array<PolicyCard & { binding: string }>>;
   readTimetable: () => Promise<{ id: string; title: string; revision: number; sectionKeys: string[] } | null>;
-  plan: (args: { request: PlanRequest & { baseProposalId?: string | null } }) => Promise<
+  plan: (args: { request: PlanRequest & { baseProposalId?: string | null; reviewQuestion?: string | null } }) => Promise<
     | {
         proposalId: string | null;
         summary: string;
@@ -153,8 +160,8 @@ export function createTools(input: {
     | { proposalId: null; reason: string }
   >;
   validate: (args: { sectionKeys: string[] }) => Promise<RuleReport>;
-  readReviews: (args: { courseCode: string; instructor?: string }) => Promise<
-    ReviewLookup & { instruction: string }
+  readReviews: (args: { courseCode: string; instructor?: string; question?: string }) => Promise<
+    ReviewLookup & { instruction: string; report: string | null }
   >;
 } {
   const { store, userId, timetableId, catalogue, now, budget, reviews } = input;
@@ -248,7 +255,7 @@ export function createTools(input: {
       };
     },
 
-    async plan(args: { request: PlanRequest & { baseProposalId?: string | null } }) {
+    async plan(args: { request: PlanRequest & { baseProposalId?: string | null; reviewQuestion?: string | null } }) {
       reserveToolCall(budget, now);
       const profile = await store.getProfile(userId);
       if (!profile.saved) {
@@ -266,7 +273,7 @@ export function createTools(input: {
         return { proposalId: null, reason: "Timetable not found." };
       }
 
-      const { baseProposalId = null, ...request } = args.request;
+      const { baseProposalId = null, reviewQuestion = null, ...request } = args.request;
       let currentKeys = [...timetable.sectionKeys];
       let seedUnmet: string[] | undefined;
       if (baseProposalId) {
@@ -307,6 +314,7 @@ export function createTools(input: {
           const applied = applyReviewContext(
             { keys: selectionKeys, selections: draft.selections, gapReason: draft.gapReason },
             notes,
+            reviewQuestion,
           );
           const sameSelection = applied.keys.join("\n") === selectionKeys.join("\n");
           if (sameSelection) {
@@ -363,7 +371,7 @@ export function createTools(input: {
       return report;
     },
 
-    async readReviews(args: { courseCode: string; instructor?: string }) {
+    async readReviews(args: { courseCode: string; instructor?: string; question?: string }) {
       reserveToolCall(budget, now);
       const courseCode = args.courseCode?.trim() ?? "";
       if (reviewReads >= READ_REVIEWS_TURN_LIMIT) {
@@ -378,10 +386,14 @@ export function createTools(input: {
       try {
         const result = await reviews.lookup({ courseCode, instructor: args.instructor });
         console.info(JSON.stringify({ tool: "readReviews", outcome: result.status }));
+        const report =
+          args.question && result.understanding
+            ? rewriteForRequest({ understanding: result.understanding, question: args.question })
+            : null;
         return {
           ...result,
-          instruction:
-            "Treat these as community opinions from 澳大選咩課. Do not drop or reject a legal compulsory or required course because a review calls it hard. Hard rules stay hard.",
+          report,
+          instruction: REVIEW_INSTRUCTION,
         };
       } catch {
         console.info(JSON.stringify({ tool: "readReviews", outcome: "unavailable" }));

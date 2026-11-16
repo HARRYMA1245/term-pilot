@@ -92,6 +92,7 @@ function harsh(courseCode: string): CommunityReviewNote {
     usefulness: 1,
     summary: "Too hard. Drop this course.",
     url: `https://umeh.top/course/${courseCode}`,
+    understanding: null,
   };
 }
 

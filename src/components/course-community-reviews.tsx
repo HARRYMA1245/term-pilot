@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { theme } from "@/domain/theme";
+import { understandingBlurb } from "@/domain/what2reg/understand";
 import { WHAT2REG_ATTRIBUTION, WHAT2REG_DISCLAIMER, type ReviewLookup } from "@/domain/what2reg/types";
 
 function score(value: number | null): string {
@@ -11,11 +12,14 @@ function score(value: number | null): string {
 export function CommunityReviewBody({
   lookup,
 }: {
-  lookup: Pick<ReviewLookup, "status" | "disclaimer" | "instructors" | "attribution">;
+  lookup: Pick<ReviewLookup, "status" | "disclaimer" | "instructors" | "attribution" | "understanding">;
 }) {
   return (
     <section aria-label="Community reviews" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <p style={{ margin: 0, fontSize: 12, lineHeight: 1.45, color: theme.muted }}>{lookup.disclaimer}</p>
+      {lookup.understanding ? (
+        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.45, color: theme.ink }}>{understandingBlurb(lookup.understanding)}</p>
+      ) : null}
       {lookup.status === "unauthorized" ? (
         <a
           href="/what2reg"
@@ -88,6 +92,7 @@ export function CourseCommunityReviews({
             attribution: WHAT2REG_ATTRIBUTION,
             disclaimer: WHAT2REG_DISCLAIMER,
             instructors: [],
+            understanding: null,
             mayRejectLegalCourse: false,
           });
         }

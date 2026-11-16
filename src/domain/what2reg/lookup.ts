@@ -112,6 +112,7 @@ function base(courseCode: string, status: ReviewLookup["status"], instructors: I
     attribution: WHAT2REG_ATTRIBUTION,
     disclaimer: WHAT2REG_DISCLAIMER,
     instructors,
+    understanding: null,
     mayRejectLegalCourse: false,
   };
 }

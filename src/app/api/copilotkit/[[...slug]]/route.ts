@@ -36,8 +36,11 @@ const INSTRUCTIONS = [
   "You cannot write the timetable.",
   "Community reviews from 澳大選咩課 / What2Reg @ UM are student opinions, not University of Macau statements.",
   "Call readReviews only for a course already under consideration. It is limited to a few calls per turn.",
-  "Never drop, reject, or replace a legal compulsory or required course because a review says it is hard.",
-  "Hard rules stay hard. If reviews are missing or the student has not connected 選咩課, keep planning.",
+  "readReviews returns a structured understanding and the raw review page. Rewrite a short answer for the student's current question from the comment substance: workload, teaching, assessment, or whether it is worth taking. Do not answer with scores alone, and do not paste the same summary for every question.",
+  "If understanding.uncertainty is small-sample or conflict, say the evidence is thin or the comments disagree.",
+  "When the student asks what a course is like, set plan.reviewQuestion to that question so the proposal note matches the answer.",
+  "Never drop, reject, or replace a legal compulsory or required course because a review says it is hard. A negative understanding may only add a note.",
+  "Hard rules stay hard. If reviews or the understanding are missing, or the student has not connected 選咩課, keep planning.",
 ].join(" ");
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const satisfies readonly Day[];
@@ -85,6 +88,11 @@ const planRequest = z.object({
     .string()
     .nullable()
     .describe("Open preview to revise, or null to start from the saved timetable")
+    .default(null),
+  reviewQuestion: z
+    .string()
+    .nullable()
+    .describe("The student's question about what a course is like, such as workload or how easy it is to pass. Null when they did not ask.")
     .default(null),
 });
 
@@ -207,10 +215,11 @@ const runtime = new CopilotRuntime({
       readReviews: defineTool({
         name: "readReviews",
         description:
-          "Read a few public 澳大選咩課 community review summaries for one course already under consideration. Opinions only. Never a reason to drop a legal compulsory or required course. Fails open when reviews are missing.",
+          "Read public 澳大選咩課 reviews for one course already under consideration. Returns the raw review page and a structured understanding of what the comments say. Rewrite that understanding for the student's question. Opinions only. Never a reason to drop a legal compulsory or required course. Fails open when reviews are missing.",
         parameters: z.object({
           courseCode: z.string().describe("Catalogue course code, for example CISC1000"),
           instructor: z.string().describe("Instructor name on the section being considered").optional(),
+          question: z.string().describe("The student's current question, so the report can answer it").optional(),
         }),
         execute: (args) => tools.readReviews(args),
       }),

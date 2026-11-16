@@ -41,6 +41,7 @@ describe("readReviews tool", () => {
         attribution: "澳大選咩課 / What2Reg @ UM",
         disclaimer: "Community opinions from 澳大選咩課 / What2Reg @ UM. They are not official University of Macau statements.",
         instructors: [],
+        understanding: null,
         mayRejectLegalCourse: false,
       };
     };
