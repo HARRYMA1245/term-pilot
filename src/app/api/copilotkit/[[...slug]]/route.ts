@@ -7,6 +7,7 @@ import { UnauthorizedError, requireUserId } from "@/auth";
 import { appStore } from "@/db/server-store";
 import { loadCatalogue } from "@/domain/catalogue";
 import type { Catalogue, Day } from "@/domain/types";
+import { notesForCourses, readReviewsForUser, resolveRuntimeDeps } from "@/domain/what2reg/runtime";
 
 export const ASSISTANT_UNAVAILABLE = "The assistant is unavailable. Search and manual add still work.";
 
@@ -33,6 +34,10 @@ const INSTRUCTIONS = [
   "Do not describe a result as degree progress or as university approval.",
   "Never claim the timetable was saved. A proposal is a preview until the student uses Apply or Save as a new timetable.",
   "You cannot write the timetable.",
+  "Community reviews from 澳大選咩課 / What2Reg @ UM are student opinions, not University of Macau statements.",
+  "Call readReviews only for a course already under consideration. It is limited to a few calls per turn.",
+  "Never drop, reject, or replace a legal compulsory or required course because a review says it is hard.",
+  "Hard rules stay hard. If reviews are missing or the student has not connected 選咩課, keep planning.",
 ].join(" ");
 
 const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const satisfies readonly Day[];
@@ -130,6 +135,7 @@ const runtime = new CopilotRuntime({
       maxCalls: 24,
       maxMs: 60_000,
     };
+    const reviewDeps = await resolveRuntimeDeps();
     const tools = createTools({
       store: appStore,
       userId,
@@ -137,6 +143,19 @@ const runtime = new CopilotRuntime({
       catalogue: catalogue(),
       now: () => Date.now(),
       budget,
+      reviews: {
+        lookup: ({ courseCode, instructor }) =>
+          readReviewsForUser(
+            {
+              userId,
+              courseCode,
+              instructors: instructor ? [instructor] : [],
+              reviewInstructorCap: 1,
+            },
+            reviewDeps,
+          ),
+        notesFor: (courseCodes) => notesForCourses(userId, courseCodes, reviewDeps),
+      },
     });
     const defined = {
       searchSections: defineTool({
@@ -184,6 +203,16 @@ const runtime = new CopilotRuntime({
         description: "Check section keys against the hard scheduling rules.",
         parameters: z.object({ sectionKeys: z.array(z.string()) }),
         execute: (args) => tools.validate(args),
+      }),
+      readReviews: defineTool({
+        name: "readReviews",
+        description:
+          "Read a few public 澳大選咩課 community review summaries for one course already under consideration. Opinions only. Never a reason to drop a legal compulsory or required course. Fails open when reviews are missing.",
+        parameters: z.object({
+          courseCode: z.string().describe("Catalogue course code, for example CISC1000"),
+          instructor: z.string().describe("Instructor name on the section being considered").optional(),
+        }),
+        execute: (args) => tools.readReviews(args),
       }),
     };
 
